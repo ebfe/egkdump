@@ -251,14 +251,14 @@ func parseVD(raw []byte) (*VD, error) {
 		return nil, fmt.Errorf("vd data too short")
 	}
 
-	doffset := int(binary.BigEndian.Uint16(raw))
-	dlen := int(binary.BigEndian.Uint16(raw[2:]))
-	if doffset+dlen > len(raw) {
-		return nil, fmt.Errorf("vd invalid offset/length %d/%d (avail %d)\n", doffset, dlen, len(raw))
+	start:= int(binary.BigEndian.Uint16(raw))
+	end:= int(binary.BigEndian.Uint16(raw[2:]))
+	if end < start || end > len(raw) {
+		return nil, fmt.Errorf("vd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
 	}
 
 	var vd VD
-	if err := parseGzippedXml(raw[doffset:doffset+dlen], &vd); err != nil {
+	if err := parseGzippedXml(raw[start:end], &vd); err != nil {
 		return nil, err
 	}
 	return &vd, nil
