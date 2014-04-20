@@ -1,11 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/binary"
 	"encoding/hex"
+	"encoding/xml"
 	"fmt"
 	"os"
 
+	"code.google.com/p/go-charset/charset"
+	_ "code.google.com/p/go-charset/data"
 	"github.com/ebfe/scard"
+	"github.com/kr/pretty"
 )
 
 var (
@@ -46,7 +53,7 @@ func selectAid(card *scard.Card, aid []byte) error {
 	if err != nil {
 		return err
 	}
-	sw, _:= DecodeResponseAPDU(rapdu)
+	sw, _ := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
 		return fmt.Errorf("sw %x\n", sw)
 	}
@@ -54,7 +61,7 @@ func selectAid(card *scard.Card, aid []byte) error {
 }
 
 func readBinary(card *scard.Card, offset uint16, le int) ([]byte, error) {
-	apdu := EncodeAPDU(0x00, 0xb0, byte(offset >> 8), byte(offset), nil, le)
+	apdu := EncodeAPDU(0x00, 0xb0, byte(offset>>8), byte(offset), nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
 		return nil, err
@@ -67,7 +74,7 @@ func readBinary(card *scard.Card, offset uint16, le int) ([]byte, error) {
 }
 
 func readBinarySfid(card *scard.Card, sfid byte, offset byte, le int) ([]byte, error) {
-	apdu := EncodeAPDU(0x00, 0xb0, 0x80 | sfid, offset, nil, le)
+	apdu := EncodeAPDU(0x00, 0xb0, 0x80|sfid, offset, nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
 		return nil, err
@@ -93,7 +100,7 @@ func readRecord(card *scard.Card, idx byte, le int) ([]byte, error) {
 }
 
 func readRecordSfid(card *scard.Card, sfid byte, idx byte, le int) ([]byte, error) {
-	apdu := EncodeAPDU(0x00, 0xb2, idx, (sfid<<3) | 0x04, nil, le)
+	apdu := EncodeAPDU(0x00, 0xb2, idx, (sfid<<3)|0x04, nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
 		return nil, err
@@ -131,6 +138,66 @@ func dumpRoot(card *scard.Card) {
 
 }
 
+type PD struct {
+	CDMVersion   string   `xml:"CDM_VERSION,attr"`
+	Versicherter struct {
+		VersichertenID string `xml:"Versicherten_ID"`
+		Person         struct {
+			Geburtsdatum    string `xml:"Geburtsdatum"`
+			Vorname         string `xml:"Vorname"`
+			Nachname        string `xml:"Nachname"`
+			Geschlecht      string `xml:"Geschlecht"`
+			Vorsatzwort     string `xml:"Vorsatzwort"`
+			Namenszusatz    string `xml:"Namenszusatz"`
+			Titel           string `xml:"Titel"`
+			PostfachAdresse struct {
+				Postleitzahl string `xml:"Postleitzahl"`
+				Ort          string `xml:"Ort"`
+				Postfach     string `xml:"Postfach"`
+				Land         struct {
+					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode'`
+				} `xml:"Land"`
+			} `xml:"PostfachAdresse"`
+			StrassenAdresse struct {
+				Postleitzahl string `xml:"Postleitzahl"`
+				Ort          string `xml:"Ort"`
+				Postfach     string `xml:"Postfach"`
+				Land         struct {
+					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode'`
+				} `xml:"Land"`
+				Strasse           string `xml:"Strasse"`
+				Hausnummer        string `xml:"Hausnummer"`
+				Anschriftenzusatz string `xml:"Anschriftenzusatz"`
+			} `xml:"StrassenAdresse"`
+		} `xml:"Person"`
+	} `xml:"Versicherter"`
+}
+
+func parsePD(raw []byte) (*PD, error) {
+	if len(raw) < 2 {
+		return nil, fmt.Errorf("pd data too short")
+	}
+
+	dlen := int(binary.BigEndian.Uint16(raw))
+	if dlen > len(raw)-2 {
+		return nil, fmt.Errorf("pd invalid length %d (avail %d)\n", dlen, len(raw))
+	}
+
+	gzipped := raw[2 : 2+dlen]
+	rd, err := gzip.NewReader(bytes.NewReader(gzipped))
+	if err != nil {
+		return nil, err
+	}
+	var pd PD
+	dec := xml.NewDecoder(rd)
+	dec.CharsetReader = charset.NewReader
+	err = dec.Decode(&pd)
+	if err != nil {
+		return nil, err
+	}
+	return &pd, nil
+}
+
 func dumpHCA(card *scard.Card) {
 	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
 	if err != nil {
@@ -143,17 +210,24 @@ func dumpHCA(card *scard.Card) {
 	if err != nil {
 		fmt.Printf("ef.pd err: %s\n", err)
 	} else {
-		fmt.Printf("ef.pd: %s\n", hex.EncodeToString(pd))
+		fmt.Printf("ef.pd:\n")
+		parsed, err := parsePD(pd)
+		if err != nil {
+			fmt.Printf("parse error: %s\n", err)
+			fmt.Println(hex.Dump(pd))
+		} else { 
+			pretty.Println(parsed)
+		}
 	}
 
 	vd, err := readBinarySfid(card, efvd, 0, leWildcardExtended)
 	if err != nil {
 		fmt.Printf("ef.vd err: %s\n", err)
 	} else {
-		fmt.Printf("ef.vd: %s\n", hex.EncodeToString(vd))
+		fmt.Printf("ef.vd:\n")
+		fmt.Println(hex.Dump(vd))
 	}
 }
-
 
 func main() {
 	ctx, err := scard.EstablishContext()
