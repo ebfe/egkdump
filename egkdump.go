@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"os"
 
 	"code.google.com/p/go-charset/charset"
@@ -180,7 +179,7 @@ func parseGzippedXml(raw []byte, v interface{}) error {
 		return err
 	}
 	//dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
-	dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
+	dec := xml.NewDecoder(rd)
 	dec.CharsetReader = charset.NewReader
 	return dec.Decode(v)
 }
