@@ -11,6 +11,7 @@ import (
 var (
 	aidRootMF = []byte{0xd2, 0x76, 0x00, 0x01, 0x44, 0x80, 0x00}
 	aidHCA    = []byte{0xd2, 0x76, 0x00, 0x00, 0x01, 0x02}
+	aidEsign  = []byte{0xa0, 0x00, 0x00, 0x01, 0x67, 0x45, 0x53, 0x49, 0x47, 0x4e}
 )
 
 const (
@@ -107,30 +108,50 @@ func readRecordSfid(card *scard.Card, sfid byte, idx byte, le int) ([]byte, erro
 func dumpRoot(card *scard.Card) {
 	atr, err := readBinarySfid(card, efatr, 0, leWildcard)
 	if err != nil {
-		fmt.Printf("EF.ATR err: %s\n", err)
+		fmt.Printf("ef.atr err: %s\n", err)
 	} else {
-		fmt.Printf("EF.ATR: %s\n", hex.EncodeToString(atr))
+		fmt.Printf("ef.atr: %s\n", hex.EncodeToString(atr))
 	}
 
 	gdo, err := readBinarySfid(card, efgdo, 0, leWildcard)
 	if err != nil {
-		fmt.Printf("EF.GDO err: %s\n", err)
+		fmt.Printf("ef.gdo err: %s\n", err)
 	} else {
-		fmt.Printf("EF.GDO: %s\n", hex.EncodeToString(gdo))
+		fmt.Printf("ef.gdo: %s\n", hex.EncodeToString(gdo))
 	}
 
 	for i := byte(1); i < 5; i++ {
 		version, err := readRecordSfid(card, efversion, i, leWildcard)
 		if err != nil {
-			fmt.Printf("EF.Version err: %s\n", err)
+			fmt.Printf("ef.version[i] err: %s\n", i, err)
 		} else {
-			fmt.Printf("EF.Version[%d]: %s\n", i, hex.EncodeToString(version))
+			fmt.Printf("ef.version[%d]: %s\n", i, hex.EncodeToString(version))
 		}
 	}
 
 }
 
 func dumpHCA(card *scard.Card) {
+	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
+	if err != nil {
+		fmt.Printf("ef.statusvd err: %s\n", err)
+	} else {
+		fmt.Printf("ef.statusvd: %s\n", hex.EncodeToString(statusvd))
+	}
+
+	pd, err := readBinarySfid(card, efpd, 0, leWildcardExtended)
+	if err != nil {
+		fmt.Printf("ef.pd err: %s\n", err)
+	} else {
+		fmt.Printf("ef.pd: %s\n", hex.EncodeToString(pd))
+	}
+
+	vd, err := readBinarySfid(card, efvd, 0, leWildcardExtended)
+	if err != nil {
+		fmt.Printf("ef.vd err: %s\n", err)
+	} else {
+		fmt.Printf("ef.vd: %s\n", hex.EncodeToString(vd))
+	}
 }
 
 
@@ -158,17 +179,26 @@ func main() {
 	fmt.Printf("reader: %s\n", status.Reader)
 	fmt.Printf("atr: % x\n", status.Atr)
 
-	fmt.Printf("selecting root mf: %x\n", aidRootMF)
+	fmt.Printf("selecting root mf: %x... ", aidRootMF)
 	if err := selectAid(card, aidRootMF); err != nil {
 		fmt.Println(err)
 	} else {
+		fmt.Println("ok")
 		dumpRoot(card)
 	}
 
-	fmt.Printf("selecting hca: %x\n", aidHCA)
+	fmt.Printf("selecting hca: %x... ", aidHCA)
 	if err := selectAid(card, aidHCA); err != nil {
 		fmt.Println(err)
 	} else {
+		fmt.Println("ok")
 		dumpHCA(card)
+	}
+
+	fmt.Printf("selecting esign: %x... ", aidEsign)
+	if err := selectAid(card, aidHCA); err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("ok")
 	}
 }
