@@ -139,7 +139,7 @@ func dumpRoot(card *scard.Card) {
 }
 
 type PD struct {
-	CDMVersion   string   `xml:"CDM_VERSION,attr"`
+	CDMVersion   string `xml:"CDM_VERSION,attr"`
 	Versicherter struct {
 		VersichertenID string `xml:"Versicherten_ID"`
 		Person         struct {
@@ -215,7 +215,7 @@ func dumpHCA(card *scard.Card) {
 		if err != nil {
 			fmt.Printf("parse error: %s\n", err)
 			fmt.Println(hex.Dump(pd))
-		} else { 
+		} else {
 			pretty.Println(parsed)
 		}
 	}

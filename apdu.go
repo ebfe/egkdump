@@ -1,10 +1,10 @@
-package main 
+package main
 
 const (
 	apduMaxExtended = 0xffff + 1
-	apduMaxShort = 0xff + 1
+	apduMaxShort    = 0xff + 1
 
-	leWildcard = -1
+	leWildcard         = -1
 	leWildcardExtended = -2
 )
 
@@ -14,10 +14,10 @@ func encodeLength(n int, extended, first bool) []byte {
 	if n == leWildcard || n == leWildcardExtended {
 		if extended {
 			if first {
-				return []byte{0,0,0}
+				return []byte{0, 0, 0}
 			}
-			return []byte{0,0}
-		} 
+			return []byte{0, 0}
+		}
 		return []byte{0}
 	}
 
@@ -69,7 +69,7 @@ func DecodeResponseAPDU(data []byte) (uint16, []byte) {
 	if len(data) < 2 {
 		panic("response apdu too short")
 	}
-	sw := uint16(data[len(data)-2]) << 8 | uint16(data[len(data)-1])
+	sw := uint16(data[len(data)-2])<<8 | uint16(data[len(data)-1])
 	if len(data) > 2 {
 		return sw, data[:len(data)-2]
 	} else {
