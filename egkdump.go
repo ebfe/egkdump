@@ -72,7 +72,32 @@ func readBinarySfid(card *scard.Card, sfid byte, offset byte, le int) ([]byte, e
 		return nil, err
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
-	fmt.Printf("R: %x %x\n", sw, data)
+	if sw != 0x9000 {
+		return nil, fmt.Errorf("sw %x\n", sw)
+	}
+	return data, nil
+}
+
+func readRecord(card *scard.Card, idx byte, le int) ([]byte, error) {
+	apdu := EncodeAPDU(0x00, 0xb2, idx, 0x04, nil, le)
+	rapdu, err := card.Transmit(apdu)
+	if err != nil {
+		return nil, err
+	}
+	sw, data := DecodeResponseAPDU(rapdu)
+	if sw != 0x9000 {
+		return nil, fmt.Errorf("sw %x\n", sw)
+	}
+	return data, nil
+}
+
+func readRecordSfid(card *scard.Card, sfid byte, idx byte, le int) ([]byte, error) {
+	apdu := EncodeAPDU(0x00, 0xb2, idx, (sfid<<3) | 0x04, nil, le)
+	rapdu, err := card.Transmit(apdu)
+	if err != nil {
+		return nil, err
+	}
+	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
 		return nil, fmt.Errorf("sw %x\n", sw)
 	}
@@ -80,12 +105,29 @@ func readBinarySfid(card *scard.Card, sfid byte, offset byte, le int) ([]byte, e
 }
 
 func dumpRoot(card *scard.Card) {
-	atr, err := readBinarySfid(card, efatr, 0, 0)
+	atr, err := readBinarySfid(card, efatr, 0, leWildcard)
 	if err != nil {
 		fmt.Printf("EF.ATR err: %s\n", err)
 	} else {
 		fmt.Printf("EF.ATR: %s\n", hex.EncodeToString(atr))
 	}
+
+	gdo, err := readBinarySfid(card, efgdo, 0, leWildcard)
+	if err != nil {
+		fmt.Printf("EF.GDO err: %s\n", err)
+	} else {
+		fmt.Printf("EF.GDO: %s\n", hex.EncodeToString(gdo))
+	}
+
+	for i := byte(1); i < 5; i++ {
+		version, err := readRecordSfid(card, efversion, i, leWildcard)
+		if err != nil {
+			fmt.Printf("EF.Version err: %s\n", err)
+		} else {
+			fmt.Printf("EF.Version[%d]: %s\n", i, hex.EncodeToString(version))
+		}
+	}
+
 }
 
 func dumpHCA(card *scard.Card) {
