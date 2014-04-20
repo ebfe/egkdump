@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 
 	"code.google.com/p/go-charset/charset"
@@ -173,6 +174,17 @@ type PD struct {
 	} `xml:"Versicherter"`
 }
 
+func parseGzippedXml(raw []byte, v interface{}) error {
+	rd, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	//dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
+	dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
+	dec.CharsetReader = charset.NewReader
+	return dec.Decode(v)
+}
+
 func parsePD(raw []byte) (*PD, error) {
 	if len(raw) < 2 {
 		return nil, fmt.Errorf("pd data too short")
@@ -183,19 +195,73 @@ func parsePD(raw []byte) (*PD, error) {
 		return nil, fmt.Errorf("pd invalid length %d (avail %d)\n", dlen, len(raw))
 	}
 
-	gzipped := raw[2 : 2+dlen]
-	rd, err := gzip.NewReader(bytes.NewReader(gzipped))
-	if err != nil {
-		return nil, err
-	}
 	var pd PD
-	dec := xml.NewDecoder(rd)
-	dec.CharsetReader = charset.NewReader
-	err = dec.Decode(&pd)
-	if err != nil {
+	if err := parseGzippedXml(raw[2:2+dlen], &pd); err != nil {
 		return nil, err
 	}
 	return &pd, nil
+}
+
+type VD struct {
+	Versicherter struct {
+		Versicherungsschutz struct {
+			Beginn        string `xml:"Beginn"`
+			Ende          string `xml:"Ende"`
+			Kostentraeger struct {
+				Kostentraegerkennung      string `xml:"Kostentraegerkennung"`
+				Kostentraegerlaendercode  string `xml:"Kostentraegerlaendercode"`
+				Name                      string `xml:"Name"`
+				AbrechnenderKostentraeger struct {
+					Kostentraegerkennung string `xml:"Kostentraegerkennung"`
+					Name                 string `xml:"Name"`
+				} `xml:"AbrechnenderKostentraeger"`
+			} `xml:"Kostentraeger"`
+		} `xml:"Versicherungsschutz"`
+		Zusatzinfos struct {
+			ZusatzinfosGKV struct {
+				Rechtskreis                string `xml:"Rechtskreis"`
+				Versichertenart            string `xml:"Versichertenart"`
+				Versichertenstatus_RSA     string `xml:"Versichertenstatus_RSA"`
+				Zusatzinfos_Abrechnung_GKV struct {
+					Kostenerstattung_ambulant   string `xml:"Kostenerstattung_ambulant"`
+					Kostenerstattung_stationaer string `xml:"Kostenerstattung_stationaer"`
+					WOP                         string `xml:"WOP"`
+				} `xml:"Zusatzinfos_Abrechnung_GKV"`
+			} `xml:"ZusatzinfosGKV"`
+			ZusatzinfosPKV struct {
+				PKV_Verbandstarif    string `xml:"PKV_Verbandstarif"`
+				Beihilfeberechtigung struct {
+					Kennzeichnung string `xml:"Kennzeichnung"`
+				} `xml:"Beihilfeberechtigung"`
+				StationaereLeistungen struct {
+					Stationaere_Wahlleistung_Unterkunft            string `xml:"Stationaere_Wahlleistung_Unterkunft"`
+					Prozentwert_Wahlleistung_Unterkunft            string `xml:"Prozentwert_Wahlleistung_Unterkunft"`
+					HoechstsatzWahlleistungUnterkunft              string `xml:"HoechstsatzWahlleistungUnterkunft"`
+					Stationaere_Wahlleistung_aerztliche_Behandlung string `xml:"Stationaere_Wahlleistung_aerztliche_Behandlung"`
+					Prozentwert_Wahlleistung_aerztliche_Behandlung string `xml:"Prozentwert_Wahlleistung_aerztliche_Behandlung"`
+					Teilnahme_ClinicCard_Verfahren                 string `xml:"Teilnahme_ClinicCard_Verfahren"`
+				} `xml:"StationaereLeistungen"`
+			} `xml:"ZusatzinfosPKV"`
+		} `xml:"Zusatzinfos"`
+	} `xml:"Versicherter"`
+}
+
+func parseVD(raw []byte) (*VD, error) {
+	if len(raw) < 4 {
+		return nil, fmt.Errorf("vd data too short")
+	}
+
+	doffset := int(binary.BigEndian.Uint16(raw))
+	dlen := int(binary.BigEndian.Uint16(raw[2:]))
+	if doffset+dlen > len(raw) {
+		return nil, fmt.Errorf("vd invalid offset/length %d/%d (avail %d)\n", doffset, dlen, len(raw))
+	}
+
+	var vd VD
+	if err := parseGzippedXml(raw[doffset:doffset+dlen], &vd); err != nil {
+		return nil, err
+	}
+	return &vd, nil
 }
 
 func dumpHCA(card *scard.Card) {
@@ -225,7 +291,13 @@ func dumpHCA(card *scard.Card) {
 		fmt.Printf("ef.vd err: %s\n", err)
 	} else {
 		fmt.Printf("ef.vd:\n")
-		fmt.Println(hex.Dump(vd))
+		parsed, err := parseVD(vd)
+		if err != nil {
+			fmt.Printf("parse error: %s\n", err)
+			fmt.Println(hex.Dump(vd))
+		} else {
+			pretty.Println(parsed)
+		}
 	}
 }
 
