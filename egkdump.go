@@ -264,6 +264,33 @@ func parseVD(raw []byte) (*VD, error) {
 	return &vd, nil
 }
 
+type GVD struct {
+	Zuzahlungsstatus struct {
+		Status      string `xml:"Status"`
+		Gueltig_bis string `xml:"Gueltig_bis"`
+	} `xml:"Zuzahlungsstatus"`
+	Besondere_Personengruppe string `xml:"Besondere_Personengruppe"`
+	DMP_Kennzeichnung        string `xml:"DMP_Kennzeichnung"`
+}
+
+func parseGVDFromEFVD(raw []byte) (*GVD, error) {
+	if len(raw) < 8 {
+		return nil, fmt.Errorf("gvd data too short")
+	}
+
+	start:= int(binary.BigEndian.Uint16(raw[4:]))
+	end:= int(binary.BigEndian.Uint16(raw[6:]))
+	if end < start || end > len(raw) {
+		return nil, fmt.Errorf("gvd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
+	}
+
+	var gvd GVD
+	if err := parseGzippedXml(raw[start:end], &gvd); err != nil {
+		return nil, err
+	}
+	return &gvd, nil
+}
+
 func dumpHCA(card *scard.Card) {
 	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
 	if err != nil {
@@ -297,6 +324,13 @@ func dumpHCA(card *scard.Card) {
 			fmt.Println(hex.Dump(vd))
 		} else {
 			pretty.Println(parsed)
+		}
+		gvdparsed, err := parseGVDFromEFVD(vd)
+		if err != nil {
+			fmt.Printf("parse error: %s\n", err)
+			fmt.Println(hex.Dump(vd))
+		} else {
+			pretty.Println(gvdparsed)
 		}
 	}
 }
