@@ -216,7 +216,7 @@ func parseGDO(raw []byte) (*ICCSN, error) {
 }
 
 func dumpRoot(card Card) {
-	fmt.Println("ef.atr")
+	fmt.Println("mf/ef.atr")
 	atr, err := readBinarySfid(card, efatr, 0, apduMaxShort)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
@@ -224,7 +224,7 @@ func dumpRoot(card Card) {
 		fmt.Printf("\t%s\n", hex.EncodeToString(atr))
 	}
 
-	fmt.Println("ef.dir")
+	fmt.Println("mf/ef.dir")
 	for i := byte(1); i < 11; i++ {
 		dir, err := readRecordSfid(card, efdir, i, apduMaxShort)
 		if err != nil {
@@ -234,7 +234,7 @@ func dumpRoot(card Card) {
 		}
 	}
 
-	fmt.Println("ef.gdo")
+	fmt.Println("mf/ef.gdo")
 	gdo, err := readBinarySfid(card, efgdo, 0, apduMaxShort)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
@@ -248,7 +248,7 @@ func dumpRoot(card Card) {
 		}
 	}
 
-	fmt.Println("ef.version")
+	fmt.Println("mf/ef.version")
 	for i := byte(1); i < 5; i++ {
 		version, err := readRecordSfid(card, efversion, i, apduMaxShort)
 		if err != nil {
@@ -261,15 +261,13 @@ func dumpRoot(card Card) {
 	var certs = []struct {
 		name string
 		sfid byte
-
-	} {
-		{name: "ef.c.ca_egk.cs.r2048", sfid: efcaegkcsr2048},
-		{name: "ef.c.ca_egk.cs.e256", sfid: efcaegkcse256},
-		{name: "ef.c.ca_egk.cs.e384", sfid: efcaegkcse384},
-		{name: "ef.c.egk.aut_cvc.r2048", sfid: efegkautcvcr2048},
-		{name: "ef.c.egk.aut_cvc.e256", sfid: efegkautcvce256},
-		{name: "ef.c.egk.aut_cvc.e384", sfid: efegkautcvce384},
-
+	}{
+		{name: "mf/ef.c.ca_egk.cs.r2048", sfid: efcaegkcsr2048},
+		{name: "mf/ef.c.ca_egk.cs.e256", sfid: efcaegkcse256},
+		{name: "mf/ef.c.ca_egk.cs.e384", sfid: efcaegkcse384},
+		{name: "mf/ef.c.egk.aut_cvc.r2048", sfid: efegkautcvcr2048},
+		{name: "mf/ef.c.egk.aut_cvc.e256", sfid: efegkautcvce256},
+		{name: "mf/ef.c.egk.aut_cvc.e384", sfid: efegkautcvce384},
 	}
 
 	for _, c := range certs {
@@ -458,10 +456,10 @@ func parseGVDFromEFVD(raw []byte) (*GVD, error) {
 }
 
 func dumpHCA(card Card) {
-	fmt.Println("ef.statusvd")
+	fmt.Println("hca/ef.statusvd")
 	statusvd, err := readBinarySfid(card, efstatusvd, 0, apduMaxExtended)
 	if err != nil {
-		fmt.Printf("ef.statusvd err: %s\n", err)
+		fmt.Printf("hca/ef.statusvd err: %s\n", err)
 	} else {
 		var svd StatusVD
 		err := svd.UnmarshalBinary(statusvd)
@@ -472,35 +470,35 @@ func dumpHCA(card Card) {
 		}
 	}
 
+	fmt.Println("hca/ef.pd")
 	pd, err := readBinarySfid(card, efpd, 0, apduMaxExtended)
 	if err != nil {
-		fmt.Printf("ef.pd err: %s\n", err)
+		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Printf("ef.pd:\n")
 		parsed, err := parsePD(pd)
 		if err != nil {
-			fmt.Printf("parse error: %s\n", err)
+			fmt.Printf("\tparse error: %s\n", err)
 			fmt.Println(hex.Dump(pd))
 		} else {
 			pretty.Println(parsed)
 		}
 	}
 
+	fmt.Println("hca/ef.vd")
 	vd, err := readBinarySfid(card, efvd, 0, apduMaxExtended)
 	if err != nil {
-		fmt.Printf("ef.vd err: %s\n", err)
+		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Printf("ef.vd:\n")
 		parsed, err := parseVD(vd)
 		if err != nil {
-			fmt.Printf("parse error: %s\n", err)
+			fmt.Printf("\tparse error: %s\n", err)
 			fmt.Println(hex.Dump(vd))
 		} else {
 			pretty.Println(parsed)
 		}
 		gvdparsed, err := parseGVDFromEFVD(vd)
 		if err != nil {
-			fmt.Printf("parse error: %s\n", err)
+			fmt.Printf("\tparse error: %s\n", err)
 			fmt.Println(hex.Dump(vd))
 		} else {
 			pretty.Println(gvdparsed)
@@ -545,7 +543,6 @@ func main() {
 	if err := selectAid(card, aidRootMF); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("ok")
 		dumpRoot(card)
 	}
 
@@ -553,7 +550,6 @@ func main() {
 	if err := selectAid(card, aidHCA); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("ok")
 		dumpHCA(card)
 	}
 
@@ -561,13 +557,13 @@ func main() {
 	if err := selectAid(card, aidQES); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("ok")
+		fmt.Println("\tok")
 	}
 
 	fmt.Printf("selecting esign: %x...\n", aidEsign)
 	if err := selectAid(card, aidEsign); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("ok")
+		fmt.Println("\tok")
 	}
 }
