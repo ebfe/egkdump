@@ -281,8 +281,8 @@ func parseVD(raw []byte) (*VD, error) {
 		return nil, fmt.Errorf("vd data too short")
 	}
 
-	start:= int(binary.BigEndian.Uint16(raw))
-	end:= int(binary.BigEndian.Uint16(raw[2:]))
+	start := int(binary.BigEndian.Uint16(raw))
+	end := int(binary.BigEndian.Uint16(raw[2:]))
 	if end < start || end > len(raw) {
 		return nil, fmt.Errorf("vd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
 	}
@@ -309,8 +309,8 @@ func parseGVDFromEFVD(raw []byte) (*GVD, error) {
 		return nil, fmt.Errorf("gvd data too short")
 	}
 
-	start:= int(binary.BigEndian.Uint16(raw[4:]))
-	end:= int(binary.BigEndian.Uint16(raw[6:]))
+	start := int(binary.BigEndian.Uint16(raw[4:]))
+	end := int(binary.BigEndian.Uint16(raw[6:]))
 	if end < start || end > len(raw) {
 		return nil, fmt.Errorf("gvd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
 	}
