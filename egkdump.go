@@ -80,7 +80,7 @@ func selectAid(card Card, aid []byte) error {
 	}
 	sw, _ := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return fmt.Errorf("sw %x", sw)
+		return fmt.Errorf("sw=%x", sw)
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func readBinary(card Card, offset uint16, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw %x\n", sw)
+		return nil, fmt.Errorf("sw=%x", sw)
 	}
 	return data, nil
 }
@@ -106,7 +106,7 @@ func readBinarySfid(card Card, sfid byte, offset byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw %x\n", sw)
+		return nil, fmt.Errorf("sw=%x", sw)
 	}
 	return data, nil
 }
@@ -119,7 +119,7 @@ func readRecord(card Card, idx byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw %x\n", sw)
+		return nil, fmt.Errorf("sw=%x", sw)
 	}
 	return data, nil
 }
@@ -132,7 +132,7 @@ func readRecordSfid(card Card, sfid byte, idx byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw %x\n", sw)
+		return nil, fmt.Errorf("sw=%x", sw)
 	}
 	return data, nil
 }
@@ -140,7 +140,6 @@ func readRecordSfid(card Card, sfid byte, idx byte, le int) ([]byte, error) {
 func checkBCD(raw []byte) bool {
 	for _, b := range raw {
 		if b>>4 > 9 || b&0xf > 9 {
-			fmt.Printf("bad byte: %x\n", b)
 			return false
 		}
 	}
@@ -344,27 +343,27 @@ type VD struct {
 		} `xml:"Versicherungsschutz"`
 		Zusatzinfos struct {
 			ZusatzinfosGKV struct {
-				Rechtskreis                string `xml:"Rechtskreis"`
-				Versichertenart            string `xml:"Versichertenart"`
-				Versichertenstatus_RSA     string `xml:"Versichertenstatus_RSA"`
-				Zusatzinfos_Abrechnung_GKV struct {
-					Kostenerstattung_ambulant   string `xml:"Kostenerstattung_ambulant"`
-					Kostenerstattung_stationaer string `xml:"Kostenerstattung_stationaer"`
-					WOP                         string `xml:"WOP"`
+				Rechtskreis              string `xml:"Rechtskreis"`
+				Versichertenart          string `xml:"Versichertenart"`
+				VersichertenstatusRSA    string `xml:"Versichertenstatus_RSA"`
+				ZusatzinfosAbrechnungGKV struct {
+					KostenerstattungAmbulant   string `xml:"Kostenerstattung_ambulant"`
+					KostenerstattungStationaer string `xml:"Kostenerstattung_stationaer"`
+					WOP                        string `xml:"WOP"`
 				} `xml:"Zusatzinfos_Abrechnung_GKV"`
 			} `xml:"ZusatzinfosGKV"`
 			ZusatzinfosPKV struct {
-				PKV_Verbandstarif    string `xml:"PKV_Verbandstarif"`
+				PKVVerbandstarif     string `xml:"PKV_Verbandstarif"`
 				Beihilfeberechtigung struct {
 					Kennzeichnung string `xml:"Kennzeichnung"`
 				} `xml:"Beihilfeberechtigung"`
 				StationaereLeistungen struct {
-					Stationaere_Wahlleistung_Unterkunft            string `xml:"Stationaere_Wahlleistung_Unterkunft"`
-					Prozentwert_Wahlleistung_Unterkunft            string `xml:"Prozentwert_Wahlleistung_Unterkunft"`
-					HoechstsatzWahlleistungUnterkunft              string `xml:"HoechstsatzWahlleistungUnterkunft"`
-					Stationaere_Wahlleistung_aerztliche_Behandlung string `xml:"Stationaere_Wahlleistung_aerztliche_Behandlung"`
-					Prozentwert_Wahlleistung_aerztliche_Behandlung string `xml:"Prozentwert_Wahlleistung_aerztliche_Behandlung"`
-					Teilnahme_ClinicCard_Verfahren                 string `xml:"Teilnahme_ClinicCard_Verfahren"`
+					StationaereWahlleistungUnterkunft           string `xml:"Stationaere_Wahlleistung_Unterkunft"`
+					ProzentwertWahlleistungUnterkunft           string `xml:"Prozentwert_Wahlleistung_Unterkunft"`
+					HoechstsatzWahlleistungUnterkunft           string `xml:"HoechstsatzWahlleistungUnterkunft"`
+					StationaereWahlleistungAerztlicheBehandlung string `xml:"Stationaere_Wahlleistung_aerztliche_Behandlung"`
+					ProzentwertWahlleistungAerztlicheBehandlung string `xml:"Prozentwert_Wahlleistung_aerztliche_Behandlung"`
+					TeilnahmeClinicCardVerfahren                string `xml:"Teilnahme_ClinicCard_Verfahren"`
 				} `xml:"StationaereLeistungen"`
 			} `xml:"ZusatzinfosPKV"`
 		} `xml:"Zusatzinfos"`
@@ -392,11 +391,11 @@ func parseVD(raw []byte) (*VD, error) {
 type GVD struct {
 	CDMVersion       string `xml:"CDM_VERSION,attr"`
 	Zuzahlungsstatus struct {
-		Status      string `xml:"Status"`
-		Gueltig_bis string `xml:"Gueltig_bis"`
+		Status     string `xml:"Status"`
+		GueltigBis string `xml:"Gueltig_bis"`
 	} `xml:"Zuzahlungsstatus"`
-	Besondere_Personengruppe string `xml:"Besondere_Personengruppe"`
-	DMP_Kennzeichnung        string `xml:"DMP_Kennzeichnung"`
+	BesonderePersonengruppe string `xml:"Besondere_Personengruppe"`
+	DMPKennzeichnung        string `xml:"DMP_Kennzeichnung"`
 }
 
 func parseGVDFromEFVD(raw []byte) (*GVD, error) {
