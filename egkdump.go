@@ -122,14 +122,14 @@ func checkBCD(raw []byte) bool {
 	return true
 }
 
-func decodeBCD(raw []byte) int {
-	var x int
+func decodeBCD(raw []byte) uint64 {
+	var x uint64
 
 	for _, b := range raw {
 		x *= 10
-		x += int(b >> 4)
+		x += uint64(b >> 4)
 		x *= 10
-		x += int(b & 0xf)
+		x += uint64(b & 0xf)
 	}
 
 	return x
@@ -141,6 +141,47 @@ func parseBCDVersion(raw []byte) string {
 	}
 	x := decodeBCD(raw)
 	return fmt.Sprintf("%d.%d.%d", x/(10000*1000), (x/10000)%1000, x%10000)
+}
+
+type ICCSN struct {
+	MajorIndustryIdentifier byte
+	CountryCode             int
+	IssuerIdentifier        int
+	SerialNumber            int
+}
+
+func (sn *ICCSN) UnmarshalBinary(raw []byte) error {
+	if len(raw) != 10 {
+		return fmt.Errorf("too short")
+	}
+
+	sn.MajorIndustryIdentifier = raw[0]
+	x := decodeBCD(raw[1:])
+	sn.CountryCode = int(x / 1000000000000000)
+	sn.IssuerIdentifier = int((x / 10000000000) % 100000)
+	sn.SerialNumber = int(x % 10000000000)
+
+	return nil
+}
+
+func parseGDO(raw []byte) (*ICCSN, error) {
+	if len(raw) != 12 {
+		return nil, fmt.Errorf("too short")
+	}
+
+	if raw[0] != 0x5a {
+		return nil, fmt.Errorf("bad tag (%x)", raw[0])
+	}
+	if raw[1] != 0x0a {
+		return nil, fmt.Errorf("invalid length (%x)", raw[1])
+	}
+
+	var sn ICCSN
+	err := sn.UnmarshalBinary(raw[2:])
+	if err != nil {
+		return nil, err
+	}
+	return &sn, nil
 }
 
 func dumpRoot(card *scard.Card) {
@@ -156,8 +197,15 @@ func dumpRoot(card *scard.Card) {
 		fmt.Printf("ef.gdo err: %s\n", err)
 	} else {
 		fmt.Printf("ef.gdo: %s\n", hex.EncodeToString(gdo))
+		sn, err := parseGDO(gdo)
+		if err != nil {
+			fmt.Println("parse error: %s\n", err)
+		} else {
+			pretty.Printf("\t%# v\n", sn)
+		}
 	}
 
+	fmt.Println("ef.version")
 	for i := byte(1); i < 5; i++ {
 		version, err := readRecordSfid(card, efversion, i, leWildcard)
 		if err != nil {
