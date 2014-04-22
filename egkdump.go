@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/xml"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"code.google.com/p/go-charset/charset"
@@ -32,6 +34,28 @@ const (
 	efvd       = 0x02
 )
 
+type Card interface {
+	Transmit(cmd []byte) ([]byte, error)
+}
+
+type apduLogger struct {
+	card Card
+	log  io.Writer
+}
+
+func newApduLogger(card Card, log io.Writer) Card {
+	return &apduLogger{card: card, log: log}
+}
+
+func (al *apduLogger) Transmit(cmd []byte) ([]byte, error) {
+	fmt.Fprintf(al.log, "c-apdu: %x\n", cmd)
+	rsp, err := al.card.Transmit(cmd)
+	if rsp != nil {
+		fmt.Fprintf(al.log, "r-apdu: %x\n", rsp)
+	}
+	return rsp, err
+}
+
 func findCard(ctx *scard.Context) (*scard.Card, error) {
 	readers, err := ctx.ListReaders()
 	if err != nil {
@@ -48,7 +72,7 @@ func findCard(ctx *scard.Context) (*scard.Card, error) {
 	return nil, fmt.Errorf("no card found")
 }
 
-func selectAid(card *scard.Card, aid []byte) error {
+func selectAid(card Card, aid []byte) error {
 	apdu := EncodeAPDU(0x00, 0xa4, 0x04, 0x0c, aid, 0)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
@@ -61,7 +85,7 @@ func selectAid(card *scard.Card, aid []byte) error {
 	return nil
 }
 
-func readBinary(card *scard.Card, offset uint16, le int) ([]byte, error) {
+func readBinary(card Card, offset uint16, le int) ([]byte, error) {
 	apdu := EncodeAPDU(0x00, 0xb0, byte(offset>>8), byte(offset), nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
@@ -74,7 +98,7 @@ func readBinary(card *scard.Card, offset uint16, le int) ([]byte, error) {
 	return data, nil
 }
 
-func readBinarySfid(card *scard.Card, sfid byte, offset byte, le int) ([]byte, error) {
+func readBinarySfid(card Card, sfid byte, offset byte, le int) ([]byte, error) {
 	apdu := EncodeAPDU(0x00, 0xb0, 0x80|sfid, offset, nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
@@ -87,7 +111,7 @@ func readBinarySfid(card *scard.Card, sfid byte, offset byte, le int) ([]byte, e
 	return data, nil
 }
 
-func readRecord(card *scard.Card, idx byte, le int) ([]byte, error) {
+func readRecord(card Card, idx byte, le int) ([]byte, error) {
 	apdu := EncodeAPDU(0x00, 0xb2, idx, 0x04, nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
@@ -100,7 +124,7 @@ func readRecord(card *scard.Card, idx byte, le int) ([]byte, error) {
 	return data, nil
 }
 
-func readRecordSfid(card *scard.Card, sfid byte, idx byte, le int) ([]byte, error) {
+func readRecordSfid(card Card, sfid byte, idx byte, le int) ([]byte, error) {
 	apdu := EncodeAPDU(0x00, 0xb2, idx, (sfid<<3)|0x04, nil, le)
 	rapdu, err := card.Transmit(apdu)
 	if err != nil {
@@ -185,22 +209,24 @@ func parseGDO(raw []byte) (*ICCSN, error) {
 	return &sn, nil
 }
 
-func dumpRoot(card *scard.Card) {
+func dumpRoot(card Card) {
+	fmt.Println("ef.atr")
 	atr, err := readBinarySfid(card, efatr, 0, leWildcard)
 	if err != nil {
-		fmt.Printf("ef.atr err: %s\n", err)
+		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Printf("ef.atr: %s\n", hex.EncodeToString(atr))
+		fmt.Printf("\t%s\n", hex.EncodeToString(atr))
 	}
 
+	fmt.Println("ef.gdo")
 	gdo, err := readBinarySfid(card, efgdo, 0, leWildcard)
 	if err != nil {
-		fmt.Printf("ef.gdo err: %s\n", err)
+		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Printf("ef.gdo: %s\n", hex.EncodeToString(gdo))
+		fmt.Printf("\t%s\n", hex.EncodeToString(gdo))
 		sn, err := parseGDO(gdo)
 		if err != nil {
-			fmt.Println("parse error: %s\n", err)
+			fmt.Println("\tparse error: %s\n", err)
 		} else {
 			pretty.Printf("\t%# v\n", sn)
 		}
@@ -391,7 +417,7 @@ func parseGVDFromEFVD(raw []byte) (*GVD, error) {
 	return &gvd, nil
 }
 
-func dumpHCA(card *scard.Card) {
+func dumpHCA(card Card) {
 	fmt.Println("ef.statusvd")
 	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
 	if err != nil {
@@ -443,6 +469,9 @@ func dumpHCA(card *scard.Card) {
 }
 
 func main() {
+	traceApdus := flag.Bool("t", false, "trace apdus")
+	flag.Parse()
+
 	ctx, err := scard.EstablishContext()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -450,14 +479,14 @@ func main() {
 	}
 	defer ctx.Release()
 
-	card, err := findCard(ctx)
+	sccard, err := findCard(ctx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	defer card.Disconnect(scard.ResetCard)
+	defer sccard.Disconnect(scard.ResetCard)
 
-	status, err := card.Status()
+	status, err := sccard.Status()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "card status: %s\n", err)
 		os.Exit(1)
@@ -466,7 +495,13 @@ func main() {
 	fmt.Printf("reader: %s\n", status.Reader)
 	fmt.Printf("atr: % x\n", status.Atr)
 
-	fmt.Printf("selecting root mf: %x... ", aidRootMF)
+	var card Card = sccard
+
+	if *traceApdus {
+		card = newApduLogger(card, os.Stdout)
+	}
+
+	fmt.Printf("selecting root mf: %x...\n", aidRootMF)
 	if err := selectAid(card, aidRootMF); err != nil {
 		fmt.Println(err)
 	} else {
@@ -474,7 +509,7 @@ func main() {
 		dumpRoot(card)
 	}
 
-	fmt.Printf("selecting hca: %x... ", aidHCA)
+	fmt.Printf("selecting hca: %x...\n", aidHCA)
 	if err := selectAid(card, aidHCA); err != nil {
 		fmt.Println(err)
 	} else {
@@ -482,14 +517,14 @@ func main() {
 		dumpHCA(card)
 	}
 
-	fmt.Printf("selecting qes: %x... ", aidQES)
+	fmt.Printf("selecting qes: %x...\n", aidQES)
 	if err := selectAid(card, aidQES); err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Println("ok")
 	}
 
-	fmt.Printf("selecting esign: %x... ", aidEsign)
+	fmt.Printf("selecting esign: %x...\n", aidEsign)
 	if err := selectAid(card, aidEsign); err != nil {
 		fmt.Println(err)
 	} else {
