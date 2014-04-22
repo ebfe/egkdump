@@ -26,6 +26,7 @@ var (
 
 const (
 	efatr     = 0x1d
+	efdir     = 0x1e
 	efgdo     = 0x02
 	efversion = 0x10
 
@@ -40,7 +41,7 @@ type Card interface {
 
 type apduLogger struct {
 	card Card
-	log io.Writer
+	log  io.Writer
 }
 
 func newApduLogger(card Card, log io.Writer) Card {
@@ -215,6 +216,16 @@ func dumpRoot(card Card) {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
 		fmt.Printf("\t%s\n", hex.EncodeToString(atr))
+	}
+
+	fmt.Println("ef.dir")
+	for i := byte(1); i < 11; i++ {
+		dir, err := readRecordSfid(card, efdir, i, apduMaxShort)
+		if err != nil {
+			fmt.Printf("\t[%d] err: %s\n", i, err)
+		} else {
+			fmt.Printf("\t[%d]: %s\n", i, hex.EncodeToString(dir))
+		}
 	}
 
 	fmt.Println("ef.gdo")
