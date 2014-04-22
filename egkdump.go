@@ -216,6 +216,26 @@ func dumpRoot(card *scard.Card) {
 	}
 }
 
+type StatusVD struct {
+	Status    string
+	Timestamp string
+	Version   string
+	Reserved  [5]byte
+}
+
+func (s *StatusVD) UnmarshalBinary(raw []byte) error {
+	if len(raw) != 25 {
+		return fmt.Errorf("invalid length")
+	}
+
+	s.Status = string([]byte{raw[0]})
+	s.Timestamp = string(raw[1:15])
+	s.Version = parseBCDVersion(raw[15:20])
+	copy(s.Reserved[:], raw[20:])
+
+	return nil
+}
+
 func parseGzippedXml(raw []byte, v interface{}) error {
 	rd, err := gzip.NewReader(bytes.NewReader(raw))
 	if err != nil {
@@ -371,11 +391,19 @@ func parseGVDFromEFVD(raw []byte) (*GVD, error) {
 }
 
 func dumpHCA(card *scard.Card) {
+	fmt.Println("ef.statusvd")
 	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
 	if err != nil {
 		fmt.Printf("ef.statusvd err: %s\n", err)
 	} else {
-		fmt.Printf("ef.statusvd: %s\n", hex.EncodeToString(statusvd))
+		fmt.Println(hex.Dump(statusvd))
+		var svd StatusVD
+		err := svd.UnmarshalBinary(statusvd)
+		if err != nil {
+			fmt.Println("parse err: %s\n", err)
+		} else {
+			pretty.Printf("%# v\n", svd)
+		}
 	}
 
 	pd, err := readBinarySfid(card, efpd, 0, leWildcardExtended)
