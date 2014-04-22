@@ -202,6 +202,7 @@ func parsePD(raw []byte) (*PD, error) {
 }
 
 type VD struct {
+	CDMVersion   string `xml:"CDM_VERSION,attr"`
 	Versicherter struct {
 		Versicherungsschutz struct {
 			Beginn        string `xml:"Beginn"`
@@ -264,6 +265,7 @@ func parseVD(raw []byte) (*VD, error) {
 }
 
 type GVD struct {
+	CDMVersion       string `xml:"CDM_VERSION,attr"`
 	Zuzahlungsstatus struct {
 		Status      string `xml:"Status"`
 		Gueltig_bis string `xml:"Gueltig_bis"`
