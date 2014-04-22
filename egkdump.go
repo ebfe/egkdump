@@ -40,7 +40,7 @@ type Card interface {
 
 type apduLogger struct {
 	card Card
-	log  io.Writer
+	log io.Writer
 }
 
 func newApduLogger(card Card, log io.Writer) Card {
@@ -211,7 +211,7 @@ func parseGDO(raw []byte) (*ICCSN, error) {
 
 func dumpRoot(card Card) {
 	fmt.Println("ef.atr")
-	atr, err := readBinarySfid(card, efatr, 0, leWildcard)
+	atr, err := readBinarySfid(card, efatr, 0, apduMaxShort)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
@@ -219,7 +219,7 @@ func dumpRoot(card Card) {
 	}
 
 	fmt.Println("ef.gdo")
-	gdo, err := readBinarySfid(card, efgdo, 0, leWildcard)
+	gdo, err := readBinarySfid(card, efgdo, 0, apduMaxShort)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
@@ -234,7 +234,7 @@ func dumpRoot(card Card) {
 
 	fmt.Println("ef.version")
 	for i := byte(1); i < 5; i++ {
-		version, err := readRecordSfid(card, efversion, i, leWildcard)
+		version, err := readRecordSfid(card, efversion, i, apduMaxShort)
 		if err != nil {
 			fmt.Printf("\t[%d] err: %s\n", i, err)
 		} else {
@@ -419,7 +419,7 @@ func parseGVDFromEFVD(raw []byte) (*GVD, error) {
 
 func dumpHCA(card Card) {
 	fmt.Println("ef.statusvd")
-	statusvd, err := readBinarySfid(card, efstatusvd, 0, leWildcardExtended)
+	statusvd, err := readBinarySfid(card, efstatusvd, 0, apduMaxExtended)
 	if err != nil {
 		fmt.Printf("ef.statusvd err: %s\n", err)
 	} else {
@@ -432,7 +432,7 @@ func dumpHCA(card Card) {
 		}
 	}
 
-	pd, err := readBinarySfid(card, efpd, 0, leWildcardExtended)
+	pd, err := readBinarySfid(card, efpd, 0, apduMaxExtended)
 	if err != nil {
 		fmt.Printf("ef.pd err: %s\n", err)
 	} else {
@@ -446,7 +446,7 @@ func dumpHCA(card Card) {
 		}
 	}
 
-	vd, err := readBinarySfid(card, efvd, 0, leWildcardExtended)
+	vd, err := readBinarySfid(card, efvd, 0, apduMaxExtended)
 	if err != nil {
 		fmt.Printf("ef.vd err: %s\n", err)
 	} else {
