@@ -112,6 +112,37 @@ func readRecordSfid(card *scard.Card, sfid byte, idx byte, le int) ([]byte, erro
 	return data, nil
 }
 
+func checkBCD(raw []byte) bool {
+	for _, b := range raw {
+		if b>>4 > 9 || b&0xf > 9 {
+			fmt.Printf("bad byte: %x\n", b)
+			return false
+		}
+	}
+	return true
+}
+
+func decodeBCD(raw []byte) int {
+	var x int
+
+	for _, b := range raw {
+		x *= 10
+		x += int(b >> 4)
+		x *= 10
+		x += int(b & 0xf)
+	}
+
+	return x
+}
+
+func parseBCDVersion(raw []byte) string {
+	if len(raw) != 5 || !checkBCD(raw) {
+		return "<invalid>"
+	}
+	x := decodeBCD(raw)
+	return fmt.Sprintf("%d.%d.%d", x/(10000*1000), (x/10000)%1000, x%10000)
+}
+
 func dumpRoot(card *scard.Card) {
 	atr, err := readBinarySfid(card, efatr, 0, leWildcard)
 	if err != nil {
@@ -130,12 +161,22 @@ func dumpRoot(card *scard.Card) {
 	for i := byte(1); i < 5; i++ {
 		version, err := readRecordSfid(card, efversion, i, leWildcard)
 		if err != nil {
-			fmt.Printf("ef.version[i] err: %s\n", i, err)
+			fmt.Printf("\t[%d] err: %s\n", i, err)
 		} else {
-			fmt.Printf("ef.version[%d]: %s\n", i, hex.EncodeToString(version))
+			fmt.Printf("\t[%d]: %s // %q\n", i, hex.EncodeToString(version), parseBCDVersion(version))
 		}
 	}
+}
 
+func parseGzippedXml(raw []byte, v interface{}) error {
+	rd, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	//dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
+	dec := xml.NewDecoder(rd)
+	dec.CharsetReader = charset.NewReader
+	return dec.Decode(v)
 }
 
 type PD struct {
@@ -171,17 +212,6 @@ type PD struct {
 			} `xml:"StrassenAdresse"`
 		} `xml:"Person"`
 	} `xml:"Versicherter"`
-}
-
-func parseGzippedXml(raw []byte, v interface{}) error {
-	rd, err := gzip.NewReader(bytes.NewReader(raw))
-	if err != nil {
-		return err
-	}
-	//dec := xml.NewDecoder(io.TeeReader(rd, os.Stdout))
-	dec := xml.NewDecoder(rd)
-	dec.CharsetReader = charset.NewReader
-	return dec.Decode(v)
 }
 
 func parsePD(raw []byte) (*PD, error) {
