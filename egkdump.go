@@ -25,10 +25,16 @@ var (
 )
 
 const (
-	efatr     = 0x1d
-	efdir     = 0x1e
-	efgdo     = 0x02
-	efversion = 0x10
+	efatr            = 0x1d
+	efdir            = 0x1e
+	efcaegkcsr2048   = 0x04
+	efcaegkcse256    = 0x07
+	efcaegkcse384    = 0x0d
+	efegkautcvcr2048 = 0x03
+	efegkautcvce256  = 0x06
+	efegkautcvce384  = 0x0c
+	efgdo            = 0x02
+	efversion        = 0x10
 
 	efstatusvd = 0x0c
 	efpd       = 0x01
@@ -249,6 +255,30 @@ func dumpRoot(card Card) {
 			fmt.Printf("\t[%d] err: %s\n", i, err)
 		} else {
 			fmt.Printf("\t[%d]: %s // %q\n", i, hex.EncodeToString(version), parseBCDVersion(version))
+		}
+	}
+
+	var certs = []struct {
+		name string
+		sfid byte
+
+	} {
+		{name: "ef.c.ca_egk.cs.r2048", sfid: efcaegkcsr2048},
+		{name: "ef.c.ca_egk.cs.e256", sfid: efcaegkcse256},
+		{name: "ef.c.ca_egk.cs.e384", sfid: efcaegkcse384},
+		{name: "ef.c.egk.aut_cvc.r2048", sfid: efegkautcvcr2048},
+		{name: "ef.c.egk.aut_cvc.e256", sfid: efegkautcvce256},
+		{name: "ef.c.egk.aut_cvc.e384", sfid: efegkautcvce384},
+
+	}
+
+	for _, c := range certs {
+		fmt.Println(c.name)
+		raw, err := readBinarySfid(card, c.sfid, 0, apduMaxExtended)
+		if err != nil {
+			fmt.Printf("\terr: %s\n", err)
+		} else {
+			fmt.Print(hex.Dump(raw))
 		}
 	}
 }
@@ -511,7 +541,7 @@ func main() {
 		card = newApduLogger(card, os.Stdout)
 	}
 
-	fmt.Printf("selecting root mf: %x...\n", aidRootMF)
+	fmt.Printf("selecting mf: %x...\n", aidRootMF)
 	if err := selectAid(card, aidRootMF); err != nil {
 		fmt.Println(err)
 	} else {
