@@ -18,6 +18,7 @@ import (
 var (
 	aidRootMF = []byte{0xd2, 0x76, 0x00, 0x01, 0x44, 0x80, 0x00}
 	aidHCA    = []byte{0xd2, 0x76, 0x00, 0x00, 0x01, 0x02}
+	aidQES    = []byte{0xd2, 0x76, 0x00, 0x00, 0x66, 0x01}
 	aidEsign  = []byte{0xa0, 0x00, 0x00, 0x01, 0x67, 0x45, 0x53, 0x49, 0x47, 0x4e}
 )
 
@@ -55,7 +56,7 @@ func selectAid(card *scard.Card, aid []byte) error {
 	}
 	sw, _ := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return fmt.Errorf("sw %x\n", sw)
+		return fmt.Errorf("sw %x", sw)
 	}
 	return nil
 }
@@ -396,7 +397,6 @@ func dumpHCA(card *scard.Card) {
 	if err != nil {
 		fmt.Printf("ef.statusvd err: %s\n", err)
 	} else {
-		fmt.Println(hex.Dump(statusvd))
 		var svd StatusVD
 		err := svd.UnmarshalBinary(statusvd)
 		if err != nil {
@@ -482,8 +482,15 @@ func main() {
 		dumpHCA(card)
 	}
 
+	fmt.Printf("selecting qes: %x... ", aidQES)
+	if err := selectAid(card, aidQES); err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("ok")
+	}
+
 	fmt.Printf("selecting esign: %x... ", aidEsign)
-	if err := selectAid(card, aidHCA); err != nil {
+	if err := selectAid(card, aidEsign); err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Println("ok")
