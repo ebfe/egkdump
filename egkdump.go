@@ -347,21 +347,8 @@ type PD struct {
 	} `xml:"Versicherter"`
 }
 
-func parsePD(raw []byte) (*PD, error) {
-	if len(raw) < 2 {
-		return nil, fmt.Errorf("pd data too short")
-	}
-
-	dlen := int(binary.BigEndian.Uint16(raw))
-	if dlen > len(raw)-2 {
-		return nil, fmt.Errorf("pd invalid length %d (avail %d)\n", dlen, len(raw))
-	}
-
-	var pd PD
-	if err := parseGzippedXml(raw[2:2+dlen], &pd); err != nil {
-		return nil, err
-	}
-	return &pd, nil
+func (pd *PD) UnmarshalBinary(raw []byte) (error) {
+	return parseGzippedXml(raw, pd)
 }
 
 type VD struct {
@@ -409,22 +396,8 @@ type VD struct {
 	} `xml:"Versicherter"`
 }
 
-func parseVD(raw []byte) (*VD, error) {
-	if len(raw) < 4 {
-		return nil, fmt.Errorf("vd data too short")
-	}
-
-	start := int(binary.BigEndian.Uint16(raw))
-	end := int(binary.BigEndian.Uint16(raw[2:]))
-	if end < start || end > len(raw) {
-		return nil, fmt.Errorf("vd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
-	}
-
-	var vd VD
-	if err := parseGzippedXml(raw[start:end], &vd); err != nil {
-		return nil, err
-	}
-	return &vd, nil
+func (vd *VD) UnmarshalBinary(raw []byte) error {
+	return parseGzippedXml(raw, vd)
 }
 
 type GVD struct {
@@ -437,22 +410,8 @@ type GVD struct {
 	DMPKennzeichnung        string `xml:"DMP_Kennzeichnung"`
 }
 
-func parseGVDFromEFVD(raw []byte) (*GVD, error) {
-	if len(raw) < 8 {
-		return nil, fmt.Errorf("gvd data too short")
-	}
-
-	start := int(binary.BigEndian.Uint16(raw[4:]))
-	end := int(binary.BigEndian.Uint16(raw[6:]))
-	if end < start || end > len(raw) {
-		return nil, fmt.Errorf("gvd invalid start/end offset %d/%d (avail %d)\n", start, end, len(raw))
-	}
-
-	var gvd GVD
-	if err := parseGzippedXml(raw[start:end], &gvd); err != nil {
-		return nil, err
-	}
-	return &gvd, nil
+func (gvd *GVD) UnmarshalBinary(raw []byte) error {
+	return parseGzippedXml(raw, gvd)
 }
 
 func dumpHCA(card Card) {
@@ -471,37 +430,68 @@ func dumpHCA(card Card) {
 	}
 
 	fmt.Println("hca/ef.pd")
-	pd, err := readBinarySfid(card, efpd, 0, apduMaxExtended)
+	rawpd, err := readBinarySfid(card, efpd, 0, apduMaxExtended)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
-		parsed, err := parsePD(pd)
+		if len(rawpd) < 2 {
+			fmt.Printf("pd data too short")
+		}
+
+		pdlen := int(binary.BigEndian.Uint16(rawpd))
+		if pdlen > len(rawpd)-2 {
+			fmt.Printf("pd invalid length %d (avail %d)\n", pdlen, len(rawpd))
+		}
+
+		var pd PD
+		err := pd.UnmarshalBinary(rawpd[2:2+pdlen])
 		if err != nil {
 			fmt.Printf("\tparse error: %s\n", err)
-			fmt.Println(hex.Dump(pd))
+			fmt.Println(hex.Dump(rawpd))
 		} else {
-			pretty.Println(parsed)
+			pretty.Println(pd)
 		}
 	}
 
 	fmt.Println("hca/ef.vd")
-	vd, err := readBinarySfid(card, efvd, 0, apduMaxExtended)
+	raw, err := readBinarySfid(card, efvd, 0, apduMaxExtended)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
-		parsed, err := parseVD(vd)
-		if err != nil {
-			fmt.Printf("\tparse error: %s\n", err)
-			fmt.Println(hex.Dump(vd))
-		} else {
-			pretty.Println(parsed)
+		if len(raw) < 8 {
+			fmt.Printf("ef.vd data too short")
+			fmt.Println(hex.Dump(raw))
 		}
-		gvdparsed, err := parseGVDFromEFVD(vd)
+
+		vdstart := int(binary.BigEndian.Uint16(raw))
+		vdend := int(binary.BigEndian.Uint16(raw[2:]))
+		gvdstart := int(binary.BigEndian.Uint16(raw[4:]))
+		gvdend:= int(binary.BigEndian.Uint16(raw[6:]))
+
+		if vdend < vdstart || vdend > len(raw) {
+			fmt.Printf("ef.vd vd invalid start/end offset %d/%d (avail %d)\n", vdstart, vdend, len(raw))
+		}
+		var vd VD
+		vdraw := raw[vdstart:vdend]
+		err := vd.UnmarshalBinary(vdraw)
 		if err != nil {
 			fmt.Printf("\tparse error: %s\n", err)
-			fmt.Println(hex.Dump(vd))
+			fmt.Println(hex.Dump(vdraw))
 		} else {
-			pretty.Println(gvdparsed)
+			pretty.Println(vd)
+		}
+
+		if gvdend < gvdstart || gvdend > len(raw) {
+			fmt.Printf("ef.gvd gvd invalid start/end offset %d/%d (avail %d)\n", gvdstart, gvdend, len(raw))
+		}
+		var gvd GVD
+		gvdraw := raw[gvdstart:gvdend]
+		gvd.UnmarshalBinary(gvdraw)
+		if err != nil {
+			fmt.Printf("\tparse error: %s\n", err)
+			fmt.Println(hex.Dump(gvdraw))
+		} else {
+			pretty.Println(gvd)
 		}
 	}
 }
