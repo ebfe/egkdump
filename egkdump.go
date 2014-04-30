@@ -45,6 +45,12 @@ type Card interface {
 	Transmit(cmd []byte) ([]byte, error)
 }
 
+type cardError uint16
+
+func (ce cardError) Error() string {
+	return fmt.Sprintf("sw=%x", uint16(ce))
+}
+
 type apduLogger struct {
 	card Card
 	log  io.Writer
@@ -87,7 +93,7 @@ func selectAid(card Card, aid []byte) error {
 	}
 	sw, _ := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return fmt.Errorf("sw=%x", sw)
+		return cardError(sw)
 	}
 	return nil
 }
@@ -100,7 +106,7 @@ func readBinary(card Card, offset uint16, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw=%x", sw)
+		return nil, cardError(sw)
 	}
 	return data, nil
 }
@@ -113,7 +119,7 @@ func readBinarySfid(card Card, sfid byte, offset byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw=%x", sw)
+		return nil, cardError(sw)
 	}
 	return data, nil
 }
@@ -126,7 +132,7 @@ func readRecord(card Card, idx byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw=%x", sw)
+		return nil, cardError(sw)
 	}
 	return data, nil
 }
@@ -139,7 +145,7 @@ func readRecordSfid(card Card, sfid byte, idx byte, le int) ([]byte, error) {
 	}
 	sw, data := DecodeResponseAPDU(rapdu)
 	if sw != 0x9000 {
-		return nil, fmt.Errorf("sw=%x", sw)
+		return nil, cardError(sw)
 	}
 	return data, nil
 }
