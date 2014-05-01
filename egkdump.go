@@ -39,6 +39,9 @@ const (
 	efstatusvd = 0x0c
 	efpd       = 0x01
 	efvd       = 0x02
+
+	efcchaut = 1
+	efcchenc = 2
 )
 
 type Card interface {
@@ -502,6 +505,45 @@ func dumpHCA(card Card) {
 	}
 }
 
+func readBinaryFull(card Card, sfid byte) ([]byte, error) {
+	// FIXME: this sucks
+	raw, err := readBinarySfid(card, efcchaut, 0, apduMaxExtended)
+	if err != nil {
+		return nil, err
+	}
+	for len(raw) < 1<<16 {
+		buf, err := readBinary(card, uint16(len(raw)), apduMaxExtended)
+		if err != nil {
+			if cerr, ok := err.(cardError); ok {
+				if cerr == 0x6b00 {
+					return append(raw, buf...), nil
+				}
+			}
+			return nil, err
+		}
+		raw = append(raw, buf...)
+	}
+	return raw, nil
+}
+
+func dumpEsign(card Card) {
+	fmt.Println("esign/ef.c.ch.aut")
+	var raw []byte
+	raw, err := readBinaryFull(card, efcchaut)
+	if err != nil {
+		fmt.Printf("\terr: %s\n", err)
+	} else {
+		fmt.Print(hex.Dump(raw))
+	}
+	fmt.Println("esign/ef.c.ch.enc")
+	raw, err = readBinaryFull(card, efcchenc)
+	if err != nil {
+		fmt.Printf("\terr: %s\n", err)
+	} else {
+		fmt.Print(hex.Dump(raw))
+	}
+}
+
 func main() {
 	traceApdus := flag.Bool("t", false, "trace apdus")
 	flag.Parse()
@@ -560,6 +602,6 @@ func main() {
 	if err := selectAid(card, aidEsign); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("\tok")
+		dumpEsign(card)
 	}
 }
