@@ -578,6 +578,30 @@ func dumpEsign(card Card) {
 	}
 }
 
+var desc = []struct {
+	name string
+	aid  []byte
+	fn   func(card Card)
+}{
+	{
+		name: "mf",
+		aid:  aidRootMF,
+		fn:   dumpRoot,
+	}, {
+		name: "hca",
+		aid:  aidHCA,
+		fn:   dumpHCA,
+	}, {
+		name: "qes",
+		aid:  aidQES,
+		fn:   nil,
+	}, {
+		name: "esign",
+		aid:  aidEsign,
+		fn:   dumpEsign,
+	},
+}
+
 func main() {
 	traceApdus := flag.Bool("t", false, "trace apdus")
 	flag.Parse()
@@ -611,31 +635,16 @@ func main() {
 		card = newApduLogger(card, os.Stdout)
 	}
 
-	fmt.Printf("selecting mf: %x...\n", aidRootMF)
-	if err := selectAid(card, aidRootMF); err != nil {
-		fmt.Println(err)
-	} else {
-		dumpRoot(card)
-	}
-
-	fmt.Printf("selecting hca: %x...\n", aidHCA)
-	if err := selectAid(card, aidHCA); err != nil {
-		fmt.Println(err)
-	} else {
-		dumpHCA(card)
-	}
-
-	fmt.Printf("selecting qes: %x...\n", aidQES)
-	if err := selectAid(card, aidQES); err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("\tok")
-	}
-
-	fmt.Printf("selecting esign: %x...\n", aidEsign)
-	if err := selectAid(card, aidEsign); err != nil {
-		fmt.Println(err)
-	} else {
-		dumpEsign(card)
+	for _, d := range desc {
+		fmt.Printf("selecting %s: %x...\n", d.name, d.aid)
+		if err := selectAid(card, d.aid); err != nil {
+			fmt.Println(err)
+		} else {
+			if d.fn == nil {
+				fmt.Println("\tok")
+			} else {
+				d.fn(card)
+			}
+		}
 	}
 }
