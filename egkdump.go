@@ -356,7 +356,7 @@ type PD struct {
 	} `xml:"Versicherter"`
 }
 
-func (pd *PD) UnmarshalBinary(raw []byte) (error) {
+func (pd *PD) UnmarshalBinary(raw []byte) error {
 	return parseGzippedXml(raw, pd)
 }
 
@@ -453,7 +453,7 @@ func dumpHCA(card Card) {
 		}
 
 		var pd PD
-		err := pd.UnmarshalBinary(rawpd[2:2+pdlen])
+		err := pd.UnmarshalBinary(rawpd[2 : 2+pdlen])
 		if err != nil {
 			fmt.Printf("\tparse error: %s\n", err)
 			fmt.Println(hex.Dump(rawpd))
@@ -475,7 +475,7 @@ func dumpHCA(card Card) {
 		vdstart := int(binary.BigEndian.Uint16(raw))
 		vdend := int(binary.BigEndian.Uint16(raw[2:]))
 		gvdstart := int(binary.BigEndian.Uint16(raw[4:]))
-		gvdend:= int(binary.BigEndian.Uint16(raw[6:]))
+		gvdend := int(binary.BigEndian.Uint16(raw[6:]))
 
 		if vdend < vdstart || vdend > len(raw) {
 			fmt.Printf("ef.vd vd invalid start/end offset %d/%d (avail %d)\n", vdstart, vdend, len(raw))
