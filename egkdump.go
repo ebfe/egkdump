@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/x509"
+	"encoding/asn1"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/xml"
@@ -526,6 +528,22 @@ func readBinaryFull(card Card, sfid byte) ([]byte, error) {
 	return raw, nil
 }
 
+func parseCert(raw []byte) (*x509.Certificate, error) {
+	// strip trailing zeroes...
+	var val asn1.RawValue
+	rest, err := asn1.Unmarshal(raw, &val)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, b := range rest {
+		if b != 0 {
+			return nil, fmt.Errorf("parseCert: non-zero trailing bytes in cert")
+		}
+	}
+	return x509.ParseCertificate(val.FullBytes)
+}
+
 func dumpEsign(card Card) {
 	fmt.Println("esign/ef.c.ch.aut")
 	var raw []byte
@@ -533,14 +551,30 @@ func dumpEsign(card Card) {
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Print(hex.Dump(raw))
+		cert, err := parseCert(raw)
+		if err != nil {
+			fmt.Printf("\terr: %s\n", err)
+			fmt.Print(hex.Dump(raw))
+		} else {
+			fmt.Printf("\tsubject: %s\n", cert.Subject)
+			fmt.Printf("\tissuer: %s\n", cert.Issuer)
+			fmt.Print(hex.Dump(cert.Raw))
+		}
 	}
 	fmt.Println("esign/ef.c.ch.enc")
 	raw, err = readBinaryFull(card, efcchenc)
 	if err != nil {
 		fmt.Printf("\terr: %s\n", err)
 	} else {
-		fmt.Print(hex.Dump(raw))
+		cert, err := parseCert(raw)
+		if err != nil {
+			fmt.Printf("\terr: %s\n", err)
+			fmt.Print(hex.Dump(raw))
+		} else {
+			fmt.Printf("\tsubject: %s\n", cert.Subject)
+			fmt.Printf("\tissuer: %s\n", cert.Issuer)
+			fmt.Print(hex.Dump(cert.Raw))
+		}
 	}
 }
 
