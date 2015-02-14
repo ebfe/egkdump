@@ -253,7 +253,7 @@ func dumpRoot(card Card) {
 		fmt.Printf("\t%s\n", hex.EncodeToString(gdo))
 		sn, err := parseGDO(gdo)
 		if err != nil {
-			fmt.Println("\tparse error: %s\n", err)
+			fmt.Printf("\tparse error: %s\n", err)
 		} else {
 			pretty.Printf("\t%# v\n", sn)
 		}
@@ -434,7 +434,7 @@ func dumpHCA(card Card) {
 		var svd StatusVD
 		err := svd.UnmarshalBinary(statusvd)
 		if err != nil {
-			fmt.Println("parse err: %s\n", err)
+			fmt.Printf("parse err: %s\n", err)
 		} else {
 			pretty.Printf("%# v\n", svd)
 		}
