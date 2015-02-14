@@ -340,7 +340,7 @@ type PD struct {
 				Ort          string `xml:"Ort"`
 				Postfach     string `xml:"Postfach"`
 				Land         struct {
-					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode'`
+					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode"`
 				} `xml:"Land"`
 			} `xml:"PostfachAdresse"`
 			StrassenAdresse struct {
@@ -348,7 +348,7 @@ type PD struct {
 				Ort          string `xml:"Ort"`
 				Postfach     string `xml:"Postfach"`
 				Land         struct {
-					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode'`
+					Wohnsitzlaendercode string `xml:"Wohnsitzlaendercode"`
 				} `xml:"Land"`
 				Strasse           string `xml:"Strasse"`
 				Hausnummer        string `xml:"Hausnummer"`
