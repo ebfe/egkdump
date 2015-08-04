@@ -13,10 +13,10 @@ import (
 	"io"
 	"os"
 
-	"code.google.com/p/go-charset/charset"
-	_ "code.google.com/p/go-charset/data"
 	"github.com/ebfe/scard"
 	"github.com/kr/pretty"
+	"github.com/rogpeppe/go-charset/charset"
+	_ "github.com/rogpeppe/go-charset/data"
 )
 
 var (
